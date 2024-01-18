@@ -1,14 +1,30 @@
 import requests, os, uuid, json
 from dotenv import load_dotenv
+import mysql.connector
+
 load_dotenv()
 
 from flask import Flask, redirect, url_for, request, render_template, session
 
 app = Flask(__name__)
 
+mydb = mysql.connector.connect(
+  host="myaztappdbsvr.mysql.database.azure.com",
+  user="azadmin",
+  password="Server@1",
+  database="ai"
+)
+
+mycursor = mydb.cursor()
+
+
 @app.route('/', methods=['GET'])
 def index():
-    return render_template('index.html')
+    mycursor.execute("SELECT * FROM histroy")
+
+    myresult = mycursor.fetchall()
+
+    return render_template('index.html', myresult=myresult)
 
 @app.route('/', methods=['POST'])
 def index_post():
@@ -17,9 +33,13 @@ def index_post():
     target_language = request.form['language']
 
     # Load the values from .env
-    key = os.environ['KEY']
-    endpoint = os.environ['ENDPOINT']
-    location = os.environ['LOCATION']
+    #key = "1e5d17112efd43bbbb10ef12b2b15568"
+    #endpoint = "https://api.cognitive.microsofttranslator.com/"
+    #location = "centralindia"
+
+    key="ce9c5786e30b41948e4cf67f276b2e5e"
+    endpoint="https://api.cognitive.microsofttranslator.com/"
+    location="eastus"
 
     # Indicate that we want to translate and the API version (3.0) and the target language
     path = '/translate?api-version=3.0'
@@ -45,6 +65,13 @@ def index_post():
     translator_response = translator_request.json()
     # Retrieve the translation
     translated_text = translator_response[0]['translations'][0]['text']
+
+    # store in the Database
+    sql = "INSERT INTO histroy (transated_text, original_text, target_language) VALUES (%s, %s, %s)"
+    val = (translated_text, original_text, target_language)
+    mycursor.execute(sql, val)
+
+    mydb.commit()
 
     # Call render template, passing the translated text,
     # original text, and target language to the template
